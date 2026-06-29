@@ -121,7 +121,7 @@ from trl import SFTTrainer
 log(f"Libraries loaded in {time.time() - t0:.0f}s")
 
 # ── config ───────────────────────────────────────────────────────────────────
-HF_TOKEN = os.environ.get("HF_TOKEN", "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")
+HF_TOKEN = os.environ.get("HF_TOKEN", "")
 
 MODEL_NAME = "microsoft/Phi-3-mini-4k-instruct"
 TRAIN_SPLIT = 0.95
@@ -255,6 +255,12 @@ def fine_tune() -> Path:
     log(f"GPU available: {__import__('torch').cuda.is_available()}")
     log(f"Dataset: {dataset_path}")
     log(f"Output:  {output_dir}")
+
+    if not HF_TOKEN:
+        raise SystemExit(
+            "HF_TOKEN not set. In Kaggle: Add-ons → Secrets → add HF_TOKEN,\n"
+            "or run:  import os; os.environ['HF_TOKEN']='hf_xxx'  before training."
+        )
 
     log("Logging in to Hugging Face...")
     login(token=HF_TOKEN)
