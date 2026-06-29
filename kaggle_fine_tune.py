@@ -122,7 +122,8 @@ from trl import SFTTrainer
 log(f"Libraries loaded in {time.time() - t0:.0f}s")
 
 # ── config ───────────────────────────────────────────────────────────────────
-MODEL_NAME = "microsoft/Phi-3-mini-4k-instruct"
+# Qwen2.5 works with Kaggle transformers>=5.0; strong on Telugu/Hinglish/Tenglish
+MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-3B-Instruct")
 TRAIN_SPLIT = 0.95
 MAX_SEQ_LENGTH = 2048
 NUM_EPOCHS = 1
@@ -220,6 +221,19 @@ def normalize_messages(messages: list[dict]) -> list[dict] | None:
     return cleaned
 
 
+def _load_model_config(model_name: str, hf_token: str):
+    """Patch Phi-3 rope_scaling for transformers 5.x if needed."""
+    config = AutoConfig.from_pretrained(
+        model_name, token=hf_token, trust_remote_code=True
+    )
+    rope = getattr(config, "rope_scaling", None)
+    if isinstance(rope, dict) and rope and "type" not in rope:
+        rope = dict(rope)
+        rope["type"] = rope.get("rope_type", "longrope")
+        config.rope_scaling = rope
+    return config
+
+
 def load_whatsapp_dataset(dataset_path: Path, train_split: float) -> Dataset:
     with open(dataset_path, encoding="utf-8") as f:
         raw = json.load(f)
@@ -313,14 +327,18 @@ def fine_tune() -> Path:
             bnb_4bit_use_double_quant=True,
         )
 
-    log(f"Loading model: {MODEL_NAME} (downloading ~7GB first time)...")
+    log(f"Loading model: {MODEL_NAME} (first run downloads ~6GB)...")
+    dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+    config = _load_model_config(MODEL_NAME, hf_token)
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
+        config=config,
         token=hf_token,
         quantization_config=bnb_config,
         device_map="auto",
         trust_remote_code=True,
-        torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
+        dtype=dtype,
+        attn_implementation="eager",
     )
     if bnb_config is not None:
         model = prepare_model_for_kbit_training(model)
