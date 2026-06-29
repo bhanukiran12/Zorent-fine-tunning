@@ -19,43 +19,68 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Disable TF/Keras backends — avoids keras_nlp conflict on Kaggle
+# Disable TF/Keras backends — required on Kaggle Colab base image
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("USE_TF", "0")
 os.environ.setdefault("USE_TORCH", "1")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 
-# Pinned versions tested on Kaggle Python 3.12 + GPU
-KAGGLE_PACKAGES = [
-    "transformers==4.46.3",
-    "tokenizers==0.20.3",
-    "accelerate==1.2.1",
-    "peft==0.14.0",
-    "trl==0.12.1",
-    "datasets==3.2.0",
-    "bitsandbytes==0.45.0",
-    "huggingface_hub==0.27.0",
-    "safetensors>=0.4.0",
-    "sentencepiece>=0.2.0",
-]
+
+def _requirements_file() -> Path | None:
+    script = globals().get("__file__")
+    if script:
+        req = Path(script).parent / "kaggle_requirements.txt"
+        if req.exists():
+            return req
+    req = Path("kaggle_requirements.txt")
+    return req if req.exists() else None
 
 
-def _ensure_packages() -> None:
-    print("Installing / fixing dependencies for Kaggle...")
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "-q",
-            "--upgrade",
-            "--force-reinstall",
-            "--no-cache-dir",
-            *KAGGLE_PACKAGES,
-        ],
-    )
+def _packages_ok() -> bool:
+    try:
+        import peft  # noqa: F401
+        import transformers  # noqa: F401
+        import trl  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+def _ensure_packages() -> bool:
+    """Install fine-tuning extras without touching torch/tf/keras/protobuf."""
+    if _packages_ok():
+        print("Dependencies already available.")
+        return False
+
+    req = _requirements_file()
+    if req:
+        print(f"Installing from {req} (Kaggle-docker safe, no force-reinstall)...")
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "-q", "-r", str(req)],
+        )
+    else:
+        print("Installing pinned fine-tuning packages...")
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "-q",
+                "transformers==4.46.3",
+                "tokenizers==0.20.3",
+                "accelerate==1.2.1",
+                "peft==0.14.0",
+                "trl==0.12.1",
+                "datasets==3.2.0",
+                "bitsandbytes==0.45.0",
+                "huggingface_hub==0.27.0",
+                "safetensors>=0.4.0",
+                "sentencepiece>=0.2.0",
+            ],
+        )
     print("Dependencies ready.")
+    return True
 
 
 def _purge_hf_modules() -> None:
@@ -74,28 +99,23 @@ def _purge_hf_modules() -> None:
 
 
 def _bootstrap() -> None:
-    """Install deps, then re-exec in a fresh process (fixes broken imports)."""
+    """Install deps if needed, then re-exec for clean imports."""
     if os.environ.get("_ZORENT_BOOTSTRAPPED") == "1":
         return
 
-    _ensure_packages()
+    installed = _ensure_packages()
 
     script = globals().get("__file__")
-    if script and Path(script).exists():
+    if installed and script and Path(script).exists():
         env = os.environ.copy()
         env["_ZORENT_BOOTSTRAPPED"] = "1"
         print("Restarting Python with clean imports...")
         subprocess.check_call([sys.executable, script], env=env)
         sys.exit(0)
 
-    # Fallback when pasted in a notebook cell (no __file__)
-    _purge_hf_modules()
+    if installed:
+        _purge_hf_modules()
     os.environ["_ZORENT_BOOTSTRAPPED"] = "1"
-    print(
-        "Warning: running inside a notebook cell. "
-        "Prefer: !python kaggle_fine_tune.py  "
-        "If imports fail, Runtime → Restart session, then re-run."
-    )
 
 
 _bootstrap()
