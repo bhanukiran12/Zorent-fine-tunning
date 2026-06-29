@@ -1,10 +1,37 @@
 # Zorent-fine-tunning
 
-Fine-tune a language model for **WhatsApp business assistant** conversations using `whatsapp_training_data.json` and Hugging Face LoRA/QLoRA.
+Single-script **Kaggle** fine-tuning for the WhatsApp business assistant LLM.
 
-## Dataset
+## Files
 
-`whatsapp_training_data.json` contains multi-turn chat examples:
+| File | Purpose |
+|------|---------|
+| `kaggle_fine_tune.py` | All-in-one: install deps, load data, train, test |
+| `whatsapp_training_data.json` | Multi-turn chat training data |
+
+## Kaggle setup
+
+1. Create a new Kaggle notebook.
+2. **Settings → Accelerator → GPU** (T4 x2 or better).
+3. Add `whatsapp_training_data.json` as a **Kaggle dataset** and attach it to the notebook.
+4. (Optional) Add `HF_TOKEN` in **Notebook → Add-ons → Secrets**.
+5. Upload `kaggle_fine_tune.py` or clone this repo.
+6. Run:
+
+```python
+!python kaggle_fine_tune.py
+```
+
+Output is saved to `/kaggle/working/zorent-whatsapp-lora/final_adapter`.
+
+## Local run
+
+```bash
+pip install torch transformers datasets peft trl accelerate bitsandbytes huggingface_hub
+python kaggle_fine_tune.py
+```
+
+## Dataset format
 
 ```json
 {
@@ -15,40 +42,3 @@ Fine-tune a language model for **WhatsApp business assistant** conversations usi
   ]
 }
 ```
-
-## Setup
-
-```bash
-pip install -r requirements.txt
-```
-
-Hugging Face token is configured in `hf_auth.py`.
-
-## Train
-
-```bash
-python fine_tune.py
-```
-
-Custom dataset path:
-
-```bash
-python fine_tune.py --dataset ./whatsapp_training_data.json
-```
-
-Adapter weights are saved to `outputs/zorent-whatsapp-lora/final_adapter`.
-
-## Inference
-
-```bash
-python inference.py --prompt "smartwatch gurinchi cheppagalaraaa?"
-```
-
-## Config
-
-Edit `config.yaml` to change model, epochs, batch size, and `max_seq_length`.
-
-## Requirements
-
-- Python 3.10+
-- NVIDIA GPU with 8GB+ VRAM (recommended)
