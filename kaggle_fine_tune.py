@@ -1,14 +1,10 @@
 """
 Zorent WhatsApp LLM fine-tuning — single script for Kaggle.
 
-Kaggle notebook (recommended):
-  Settings → Accelerator → GPU
-  Attach whatsapp_training_data.json as a dataset, then run:
+Run ONLY as a shell script (never paste into a notebook cell):
 
+    !wget -q https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/kaggle_fine_tune.py
     !python kaggle_fine_tune.py
-
-Do NOT paste this file into a notebook cell — run it as a script so
-packages install cleanly and Python restarts before training imports.
 """
 
 from __future__ import annotations
@@ -25,15 +21,13 @@ os.environ.setdefault("USE_TF", "0")
 os.environ.setdefault("USE_TORCH", "1")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 
-
-# Fine-tuning extras only — Kaggle already has transformers>=5.0.0, datasets, torch
+# Extras only — Kaggle already has transformers>=5.0.0, datasets, torch, pandas
+# --no-deps avoids upgrading torch/pandas and breaking the runtime
 PIP_PACKAGES = [
     "accelerate>=1.2.0",
     "bitsandbytes>=0.45.0",
     "huggingface_hub>=0.27.0",
     "peft>=0.15.0",
-    "safetensors>=0.4.0",
-    "sentencepiece>=0.2.0",
     "trl>=0.15.0",
 ]
 
@@ -41,60 +35,52 @@ PIP_PACKAGES = [
 def _packages_ok() -> bool:
     try:
         import peft  # noqa: F401
-        import transformers  # noqa: F401
         import trl  # noqa: F401
         return True
     except Exception:
         return False
 
 
-def _ensure_packages() -> bool:
-    """Install fine-tuning extras without touching torch/tf/keras/protobuf."""
+def _ensure_packages() -> None:
     if _packages_ok():
-        print("Dependencies already available.")
-        return False
-
-    print("Installing fine-tuning packages...")
+        print("Fine-tuning packages already installed.")
+        return
+    print("Installing fine-tuning packages (--no-deps, safe for Kaggle)...")
     subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", "-q", *PIP_PACKAGES],
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "-q",
+            "--no-deps",
+            *PIP_PACKAGES,
+        ],
     )
-    print("Dependencies ready.")
-    return True
-
-
-def _purge_hf_modules() -> None:
-    prefixes = (
-        "transformers",
-        "peft",
-        "trl",
-        "tokenizers",
-        "accelerate",
-        "datasets",
-        "bitsandbytes",
-    )
-    for name in list(sys.modules):
-        if name == "torch" or name.startswith(prefixes):
-            del sys.modules[name]
+    print("Packages ready.")
 
 
 def _bootstrap() -> None:
-    """Install deps if needed, then re-exec for clean imports."""
+    """Parent launches a fresh subprocess; child installs + trains."""
     if os.environ.get("_ZORENT_BOOTSTRAPPED") == "1":
+        _ensure_packages()
         return
 
-    installed = _ensure_packages()
-
     script = globals().get("__file__")
-    if installed and script and Path(script).exists():
-        env = os.environ.copy()
-        env["_ZORENT_BOOTSTRAPPED"] = "1"
-        print("Restarting Python with clean imports...")
-        subprocess.check_call([sys.executable, script], env=env)
-        sys.exit(0)
+    if not script or not Path(script).exists():
+        raise SystemExit(
+            "\nDo NOT paste this file into a notebook cell.\n"
+            "Run these two lines instead:\n\n"
+            "  !wget -q https://raw.githubusercontent.com/bhanukiran12/"
+            "Zorent-fine-tunning/main/kaggle_fine_tune.py\n"
+            "  !python kaggle_fine_tune.py\n"
+        )
 
-    if installed:
-        _purge_hf_modules()
-    os.environ["_ZORENT_BOOTSTRAPPED"] = "1"
+    env = os.environ.copy()
+    env["_ZORENT_BOOTSTRAPPED"] = "1"
+    print("Starting clean Python process (avoids torch conflicts)...")
+    subprocess.check_call([sys.executable, script], env=env)
+    sys.exit(0)
 
 
 _bootstrap()
