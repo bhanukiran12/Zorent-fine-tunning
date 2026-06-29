@@ -32,6 +32,10 @@ Your GitHub repo is **private**. Kaggle cannot download from private repos.
 
 **Before running:** Settings → Accelerator → **GPU ON**
 
+**HF token:** Kaggle → **Add-ons → Secrets** → add `HF_TOKEN` = your token from https://huggingface.co/settings/tokens
+
+The script reads it automatically — no need to paste the token in code.
+
 ## What you should see
 
 ```

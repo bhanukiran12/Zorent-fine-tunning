@@ -121,8 +121,6 @@ from trl import SFTTrainer
 log(f"Libraries loaded in {time.time() - t0:.0f}s")
 
 # ── config ───────────────────────────────────────────────────────────────────
-HF_TOKEN = os.environ.get("HF_TOKEN", "")
-
 MODEL_NAME = "microsoft/Phi-3-mini-4k-instruct"
 TRAIN_SPLIT = 0.95
 MAX_SEQ_LENGTH = 2048
@@ -147,6 +145,26 @@ DEFAULT_SYSTEM = (
 
 def _is_kaggle() -> bool:
     return Path("/kaggle/input").exists()
+
+
+def _get_hf_token() -> str:
+    """Read HF token from env or Kaggle Secrets."""
+    token = os.environ.get("HF_TOKEN", "").strip()
+    if token:
+        return token
+
+    if _is_kaggle():
+        try:
+            from kaggle_secrets import UserSecretsClient
+
+            token = UserSecretsClient().get_secret("HF_TOKEN").strip()
+            os.environ["HF_TOKEN"] = token
+            log("Loaded HF_TOKEN from Kaggle Secrets.")
+            return token
+        except Exception as exc:
+            log(f"Kaggle Secrets HF_TOKEN not found: {exc}")
+
+    return ""
 
 
 def _resolve_paths() -> tuple[Path, Path]:
@@ -250,20 +268,23 @@ def run_inference(model, tokenizer, user_prompt: str) -> str:
 def fine_tune() -> Path:
     dataset_path, output_dir = _resolve_paths()
     adapter_dir = output_dir / "final_adapter"
+    hf_token = _get_hf_token()
 
     log(f"Kaggle mode: {_is_kaggle()}")
     log(f"GPU available: {__import__('torch').cuda.is_available()}")
     log(f"Dataset: {dataset_path}")
     log(f"Output:  {output_dir}")
 
-    if not HF_TOKEN:
+    if not hf_token:
         raise SystemExit(
-            "HF_TOKEN not set. In Kaggle: Add-ons → Secrets → add HF_TOKEN,\n"
-            "or run:  import os; os.environ['HF_TOKEN']='hf_xxx'  before training."
+            "HF_TOKEN missing.\n"
+            "1. Kaggle → Add-ons → Secrets → add name: HF_TOKEN, value: hf_...\n"
+            "2. Re-run: !python -u kaggle_fine_tune.py\n"
+            "Get token: https://huggingface.co/settings/tokens"
         )
 
     log("Logging in to Hugging Face...")
-    login(token=HF_TOKEN)
+    login(token=hf_token)
 
     log("Loading WhatsApp dataset...")
     train_dataset = load_whatsapp_dataset(dataset_path, TRAIN_SPLIT)
@@ -271,7 +292,7 @@ def fine_tune() -> Path:
 
     log(f"Loading tokenizer: {MODEL_NAME}")
     tokenizer = AutoTokenizer.from_pretrained(
-        MODEL_NAME, token=HF_TOKEN, trust_remote_code=True
+        MODEL_NAME, token=hf_token, trust_remote_code=True
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -294,7 +315,7 @@ def fine_tune() -> Path:
     log(f"Loading model: {MODEL_NAME} (downloading ~7GB first time)...")
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
-        token=HF_TOKEN,
+        token=hf_token,
         quantization_config=bnb_config,
         device_map="auto",
         trust_remote_code=True,
