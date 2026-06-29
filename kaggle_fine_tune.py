@@ -26,19 +26,16 @@ os.environ.setdefault("USE_TORCH", "1")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 
 
-def _requirements_file() -> Path | None:
-    script = globals().get("__file__")
-    search_dirs = []
-    if script:
-        search_dirs.append(Path(script).parent)
-    search_dirs.append(Path("."))
-
-    for directory in search_dirs:
-        for name in ("zorent_requirements.txt", "kaggle_requirements.txt"):
-            req = directory / name
-            if req.exists():
-                return req
-    return None
+# Fine-tuning extras only — Kaggle already has transformers>=5.0.0, datasets, torch
+PIP_PACKAGES = [
+    "accelerate>=1.2.0",
+    "bitsandbytes>=0.45.0",
+    "huggingface_hub>=0.27.0",
+    "peft>=0.15.0",
+    "safetensors>=0.4.0",
+    "sentencepiece>=0.2.0",
+    "trl>=0.15.0",
+]
 
 
 def _packages_ok() -> bool:
@@ -57,30 +54,10 @@ def _ensure_packages() -> bool:
         print("Dependencies already available.")
         return False
 
-    req = _requirements_file()
-    if req:
-        print(f"Installing from {req} (Kaggle-docker safe, no force-reinstall)...")
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "-q", "-r", str(req)],
-        )
-    else:
-        print("Installing fine-tuning extras (uses Kaggle transformers>=5.0.0)...")
-        subprocess.check_call(
-            [
-                sys.executable,
-                "-m",
-                "pip",
-                "install",
-                "-q",
-                "accelerate>=1.2.0",
-                "bitsandbytes>=0.45.0",
-                "huggingface_hub>=0.27.0",
-                "peft>=0.15.0",
-                "safetensors>=0.4.0",
-                "sentencepiece>=0.2.0",
-                "trl>=0.15.0",
-            ],
-        )
+    print("Installing fine-tuning packages...")
+    subprocess.check_call(
+        [sys.executable, "-m", "pip", "install", "-q", *PIP_PACKAGES],
+    )
     print("Dependencies ready.")
     return True
 
