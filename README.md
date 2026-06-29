@@ -9,7 +9,7 @@
 !python -u kaggle_fine_tune.py
 ```
 
-**Check:** you must see `2026-06-29-qwen` and `Model: Qwen/Qwen2.5-3B-Instruct` in output.  
+**Check:** you must see `2026-06-29-qwen2` and `Model: Qwen/Qwen2.5-3B-Instruct` in output.  
 If you see `Phi-3` — old file cached; run cell again.
 
 **Before running:**

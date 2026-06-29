@@ -116,14 +116,13 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
-    TrainingArguments,
 )
-from trl import SFTTrainer
+from trl import SFTConfig, SFTTrainer
 
 log(f"Libraries loaded in {time.time() - t0:.0f}s")
 
 # ── config ───────────────────────────────────────────────────────────────────
-SCRIPT_VERSION = "2026-06-29-qwen"
+SCRIPT_VERSION = "2026-06-29-qwen2"
 # Qwen2.5 works with Kaggle transformers>=5.0; strong on Telugu/Hinglish/Tenglish
 MODEL_NAME = "Qwen/Qwen2.5-3B-Instruct"
 TRAIN_SPLIT = 0.95
@@ -362,7 +361,7 @@ def fine_tune() -> Path:
 
     trainer = SFTTrainer(
         model=model,
-        args=TrainingArguments(
+        args=SFTConfig(
             output_dir=str(output_dir),
             num_train_epochs=NUM_EPOCHS,
             per_device_train_batch_size=BATCH_SIZE,
@@ -375,12 +374,12 @@ def fine_tune() -> Path:
             optim="paged_adamw_8bit" if use_4bit else "adamw_torch",
             report_to="none",
             save_total_limit=2,
+            max_length=MAX_SEQ_LENGTH,
+            packing=False,
         ),
         train_dataset=train_dataset,
         processing_class=tokenizer,
         formatting_func=formatting_func,
-        max_seq_length=MAX_SEQ_LENGTH,
-        packing=False,
     )
 
     log("Starting fine-tuning (this takes 30-60+ min on T4)...")
