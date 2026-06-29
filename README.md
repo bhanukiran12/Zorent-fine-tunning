@@ -4,7 +4,7 @@
 
 ```python
 !rm -f zorent_train.py
-!wget -O zorent_train.py https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/6a27209/zorent_train.py
+!wget -O zorent_train.py https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/53159fd/zorent_train.py
 !wget -O whatsapp_training_data.json https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/whatsapp_training_data.json
 !head -30 zorent_train.py
 !python -u zorent_train.py
