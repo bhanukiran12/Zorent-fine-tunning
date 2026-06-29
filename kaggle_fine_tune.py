@@ -128,15 +128,30 @@ def _is_kaggle() -> bool:
 
 def _resolve_paths() -> tuple[Path, Path]:
     if _is_kaggle():
+        output_dir = Path("/kaggle/working/zorent-whatsapp-lora")
+
+        # 1) explicit path: DATASET_PATH=/kaggle/working/whatsapp_training_data.json python ...
+        env_path = os.environ.get("DATASET_PATH")
+        if env_path and Path(env_path).exists():
+            return Path(env_path), output_dir
+
+        # 2) downloaded next to script in /kaggle/working
+        working_file = Path("/kaggle/working/whatsapp_training_data.json")
+        if working_file.exists():
+            return working_file, output_dir
+
+        # 3) attached Kaggle dataset under /kaggle/input
         input_root = Path("/kaggle/input")
         candidates = list(input_root.rglob("whatsapp_training_data.json"))
-        if not candidates:
-            raise FileNotFoundError(
-                "whatsapp_training_data.json not found under /kaggle/input/. "
-                "Add it as a Kaggle dataset to this notebook."
-            )
-        dataset_path = candidates[0]
-        output_dir = Path("/kaggle/working/zorent-whatsapp-lora")
+        if candidates:
+            return candidates[0], output_dir
+
+        raise FileNotFoundError(
+            "whatsapp_training_data.json not found.\n"
+            "Easiest fix — run this in a cell BEFORE training:\n\n"
+            "  !wget -q https://raw.githubusercontent.com/bhanukiran12/"
+            "Zorent-fine-tunning/main/whatsapp_training_data.json\n"
+        )
     else:
         dataset_path = Path(__file__).parent / "whatsapp_training_data.json"
         output_dir = Path(__file__).parent / "outputs" / "zorent-whatsapp-lora"
