@@ -171,9 +171,9 @@ def _resolve_paths() -> tuple[Path, Path]:
 
         raise FileNotFoundError(
             "whatsapp_training_data.json not found.\n"
-            "Easiest fix — run this in a cell BEFORE training:\n\n"
-            "  !wget -q https://raw.githubusercontent.com/bhanukiran12/"
-            "Zorent-fine-tunning/main/whatsapp_training_data.json\n"
+            "Upload it to /kaggle/working/ or wget it from GitHub.\n"
+            "Note: private GitHub repos return 404 on Kaggle — make repo public\n"
+            "or upload both files manually via Kaggle File → Upload.\n"
         )
     else:
         dataset_path = Path(__file__).parent / "whatsapp_training_data.json"
