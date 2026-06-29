@@ -22,8 +22,10 @@ os.environ.setdefault("USE_TF", "0")
 os.environ.setdefault("USE_TORCH", "1")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 os.environ.setdefault("PYTHONUNBUFFERED", "1")
+# Kaggle T4x2: use one GPU only (multi-GPU + QLoRA causes cuda:0/cuda:1 errors)
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
 
-SCRIPT_VERSION = "2026-06-29-qwen5"
+SCRIPT_VERSION = "2026-06-29-qwen6"
 MODEL_NAME = "Qwen/Qwen2.5-3B-Instruct"
 GITHUB_RAW = (
     "https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/zorent_train.py"
@@ -334,6 +336,7 @@ def fine_tune() -> Path:
         )
 
     log(f"Loading model: {MODEL_NAME} (first run downloads ~6GB)...")
+    log("Using single GPU (CUDA_VISIBLE_DEVICES=0)")
     dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
     config = _load_model_config(MODEL_NAME, hf_token)
     model = AutoModelForCausalLM.from_pretrained(
@@ -341,7 +344,7 @@ def fine_tune() -> Path:
         config=config,
         token=hf_token,
         quantization_config=bnb_config,
-        device_map="auto",
+        device_map={"": 0} if use_4bit else None,
         trust_remote_code=True,
         dtype=dtype,
         attn_implementation="eager",
