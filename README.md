@@ -1,23 +1,18 @@
 # Zorent-fine-tunning
 
-## Kaggle — use `zorent_train.py` (new filename, avoids CDN cache)
+## Kaggle — use commit-pinned URL (avoids GitHub CDN cache)
 
 ```python
-!rm -f zorent_train.py kaggle_fine_tune.py
-!wget -O zorent_train.py https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/zorent_train.py
+!rm -f zorent_train.py
+!wget -O zorent_train.py https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/6a27209/zorent_train.py
 !wget -O whatsapp_training_data.json https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/whatsapp_training_data.json
-!grep -E "SCRIPT_VERSION|SFTConfig|max_length" zorent_train.py | head -3
+!head -30 zorent_train.py
 !python -u zorent_train.py
 ```
 
-**Must see:**
-```
-SCRIPT_VERSION = "2026-06-29-qwen4"
-from trl import SFTConfig, SFTTrainer
-max_length=MAX_SEQ_LENGTH,
-```
+Check `head` output shows `2026-06-29-qwen5` and **no** `_assert_fresh_script`.
 
-**Before running:** GPU ON + Kaggle Secrets → `HF_TOKEN`
+**Before running:** GPU ON + Secrets → `HF_TOKEN`
 
 ## Output
 

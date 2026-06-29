@@ -23,7 +23,7 @@ os.environ.setdefault("USE_TORCH", "1")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 os.environ.setdefault("PYTHONUNBUFFERED", "1")
 
-SCRIPT_VERSION = "2026-06-29-qwen4"
+SCRIPT_VERSION = "2026-06-29-qwen5"
 MODEL_NAME = "Qwen/Qwen2.5-3B-Instruct"
 GITHUB_RAW = (
     "https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/zorent_train.py"
@@ -42,19 +42,6 @@ PIP_PACKAGES = [
     "peft>=0.15.0",
     "trl>=0.15.0",
 ]
-
-
-def _assert_fresh_script() -> None:
-    script = globals().get("__file__")
-    if not script or not Path(script).exists():
-        return
-    text = Path(script).read_text(encoding="utf-8")
-    if "args=SFTConfig(" not in text or "max_length=MAX_SEQ_LENGTH" not in text:
-        raise SystemExit(
-            f"Stale script downloaded (need {SCRIPT_VERSION}).\n"
-            f"Run:\n  !wget -O zorent_train.py {GITHUB_RAW}\n"
-            f"  !python -u zorent_train.py"
-        )
 
 
 def _packages_ok() -> bool:
@@ -123,7 +110,6 @@ def _bootstrap() -> None:
 
 
 _bootstrap()
-_assert_fresh_script()
 log("Loading torch and training libraries (may take 1-2 min)...")
 t0 = time.time()
 
