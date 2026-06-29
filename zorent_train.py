@@ -23,7 +23,7 @@ os.environ.setdefault("USE_TORCH", "1")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 os.environ.setdefault("PYTHONUNBUFFERED", "1")
 
-SCRIPT_VERSION = "2026-06-29-qwen3"
+SCRIPT_VERSION = "2026-06-29-qwen4"
 MODEL_NAME = "Qwen/Qwen2.5-3B-Instruct"
 GITHUB_RAW = (
     "https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/zorent_train.py"
@@ -49,7 +49,7 @@ def _assert_fresh_script() -> None:
     if not script or not Path(script).exists():
         return
     text = Path(script).read_text(encoding="utf-8")
-    if "SFTConfig" not in text or "max_seq_length=MAX_SEQ_LENGTH" in text:
+    if "args=SFTConfig(" not in text or "max_length=MAX_SEQ_LENGTH" not in text:
         raise SystemExit(
             f"Stale script downloaded (need {SCRIPT_VERSION}).\n"
             f"Run:\n  !wget -O zorent_train.py {GITHUB_RAW}\n"
