@@ -28,12 +28,17 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 
 def _requirements_file() -> Path | None:
     script = globals().get("__file__")
+    search_dirs = []
     if script:
-        req = Path(script).parent / "kaggle_requirements.txt"
-        if req.exists():
-            return req
-    req = Path("kaggle_requirements.txt")
-    return req if req.exists() else None
+        search_dirs.append(Path(script).parent)
+    search_dirs.append(Path("."))
+
+    for directory in search_dirs:
+        for name in ("zorent_requirements.txt", "kaggle_requirements.txt"):
+            req = directory / name
+            if req.exists():
+                return req
+    return None
 
 
 def _packages_ok() -> bool:
@@ -59,7 +64,7 @@ def _ensure_packages() -> bool:
             [sys.executable, "-m", "pip", "install", "-q", "-r", str(req)],
         )
     else:
-        print("Installing pinned fine-tuning packages...")
+        print("Installing fine-tuning extras (uses Kaggle transformers>=5.0.0)...")
         subprocess.check_call(
             [
                 sys.executable,
@@ -67,16 +72,13 @@ def _ensure_packages() -> bool:
                 "pip",
                 "install",
                 "-q",
-                "transformers==4.46.3",
-                "tokenizers==0.20.3",
-                "accelerate==1.2.1",
-                "peft==0.14.0",
-                "trl==0.12.1",
-                "datasets==3.2.0",
-                "bitsandbytes==0.45.0",
-                "huggingface_hub==0.27.0",
+                "accelerate>=1.2.0",
+                "bitsandbytes>=0.45.0",
+                "huggingface_hub>=0.27.0",
+                "peft>=0.15.0",
                 "safetensors>=0.4.0",
                 "sentencepiece>=0.2.0",
+                "trl>=0.15.0",
             ],
         )
     print("Dependencies ready.")

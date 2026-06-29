@@ -7,54 +7,61 @@ Single-script **Kaggle** fine-tuning for the WhatsApp business assistant LLM.
 | File | Purpose |
 |------|---------|
 | `kaggle_fine_tune.py` | All-in-one: install deps, load data, train, test |
-| `kaggle_requirements.txt` | Docker-safe requirements (no torch/tf/keras/protobuf) |
+| `zorent_requirements.txt` | Fine-tuning extras only (supplement to official Kaggle image) |
 | `whatsapp_training_data.json` | Multi-turn chat training data |
 
-## Kaggle notebook (standard GPU runtime)
+## Official Kaggle image (already included)
+
+The Kaggle Docker / notebook runtime already ships:
+
+- `transformers>=5.0.0`
+- `datasets>=2.14.6`
+- `torch`, `keras-nlp`, `torchtune`, etc.
+
+`zorent_requirements.txt` only adds: `peft`, `trl`, `bitsandbytes`, `accelerate`, and related HF libs. It does **not** downgrade `transformers` or touch `protobuf`.
+
+## Kaggle notebook
 
 1. **Settings → Accelerator → GPU**
 2. Attach `whatsapp_training_data.json` as a dataset
-3. Clone or upload this repo
-4. Run:
+3. Clone repo and run:
 
 ```python
 import os
 os.environ["TRANSFORMERS_NO_TF"] = "1"
 os.environ["USE_TF"] = "0"
-!pip install -q -r kaggle_requirements.txt
+
+!git clone https://github.com/bhanukiran12/Zorent-fine-tunning.git
+%cd Zorent-fine-tunning
+
+!pip install -q -r zorent_requirements.txt
 !python kaggle_fine_tune.py
 ```
 
 Output: `/kaggle/working/zorent-whatsapp-lora/final_adapter`
 
-## Kaggle Docker image
+## Kaggle Docker build
 
-Compatible with the official Kaggle Colab-based Docker image (Python 3.12).
-
-`kaggle_requirements.txt` only adds fine-tuning packages. It does **not** pin:
-- `torch`, `tensorflow`, `keras`, `jax` (frozen from Colab base)
-- `protobuf` (pinned to `5.29.5` by Kaggle Dockerfile)
-
-Add to your Docker build:
+Append to the official `kaggle_requirements.txt` merge step:
 
 ```dockerfile
-ADD kaggle_requirements.txt /kaggle_requirements.txt
-RUN cat /kaggle_requirements.txt >> /requirements.txt
+ADD zorent_requirements.txt /zorent_requirements.txt
+RUN cat /zorent_requirements.txt >> /requirements.txt
 ```
 
-## Troubleshooting import errors
+## Troubleshooting
 
-If you see `keras_nlp` or `transformers.tokenization_utils_tokenizers` errors:
+If you see `keras_nlp` or broken `transformers` imports:
 
 1. **Session → Restart session**
-2. Do **not** use `pip install --force-reinstall transformers`
-3. Run only: `!pip install -q -r kaggle_requirements.txt`
+2. Never run `pip install --force-reinstall transformers`
+3. Only: `!pip install -q -r zorent_requirements.txt`
 4. Then: `!python kaggle_fine_tune.py`
 
 ## Local run
 
 ```bash
-pip install -r kaggle_requirements.txt
+pip install "transformers>=5.0.0" "datasets>=2.14.6" -r zorent_requirements.txt
 python kaggle_fine_tune.py
 ```
 

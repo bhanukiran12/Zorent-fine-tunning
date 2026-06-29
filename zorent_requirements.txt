@@ -1,0 +1,21 @@
+# Zorent fine-tuning supplement for official Kaggle kaggle_requirements.txt
+#
+# Official Kaggle image already provides (do NOT duplicate here):
+#   datasets>=2.14.6
+#   transformers>=5.0.0
+#   torch (frozen from Colab base)
+#   keras-nlp, keras-cv, torchtune, etc.
+#
+# Also do NOT pin: tensorflow, keras, jax, protobuf
+# (protobuf==5.29.5 is set in the Kaggle Dockerfile)
+#
+# In Docker:  cat zorent_requirements.txt >> /requirements.txt
+# In notebook: !pip install -q -r zorent_requirements.txt
+
+accelerate>=1.2.0
+bitsandbytes>=0.45.0
+huggingface_hub>=0.27.0
+peft>=0.15.0
+safetensors>=0.4.0
+sentencepiece>=0.2.0
+trl>=0.15.0
