@@ -79,6 +79,7 @@ def _bootstrap() -> None:
     if not _in_notebook_kernel():
         os.environ["_ZORENT_BOOTSTRAPPED"] = "1"
         log("Starting Zorent WhatsApp fine-tuning...")
+        log(f"Script version: {SCRIPT_VERSION} | model: {MODEL_NAME}")
         _ensure_packages()
         return
 
@@ -122,8 +123,9 @@ from trl import SFTTrainer
 log(f"Libraries loaded in {time.time() - t0:.0f}s")
 
 # ── config ───────────────────────────────────────────────────────────────────
+SCRIPT_VERSION = "2026-06-29-qwen"
 # Qwen2.5 works with Kaggle transformers>=5.0; strong on Telugu/Hinglish/Tenglish
-MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-3B-Instruct")
+MODEL_NAME = "Qwen/Qwen2.5-3B-Instruct"
 TRAIN_SPLIT = 0.95
 MAX_SEQ_LENGTH = 2048
 NUM_EPOCHS = 1
@@ -285,6 +287,8 @@ def fine_tune() -> Path:
     adapter_dir = output_dir / "final_adapter"
     hf_token = _get_hf_token()
 
+    log(f"Script version: {SCRIPT_VERSION}")
+    log(f"Model: {MODEL_NAME}")
     log(f"Kaggle mode: {_is_kaggle()}")
     log(f"GPU available: {__import__('torch').cuda.is_available()}")
     log(f"Dataset: {dataset_path}")
