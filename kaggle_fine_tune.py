@@ -1,15 +1,14 @@
 """
 Zorent WhatsApp LLM fine-tuning — single script for Kaggle.
 
-Kaggle notebook usage:
-  1. Add whatsapp_training_data.json as a Kaggle dataset (or upload to notebook).
-  2. Settings → Accelerator → GPU T4 x2 (or better).
-  3. Add HF_TOKEN in notebook Secrets, or set HF_TOKEN below.
-  4. Run:  !python kaggle_fine_tune.py
+Kaggle notebook (recommended):
+  Settings → Accelerator → GPU
+  Attach whatsapp_training_data.json as a dataset, then run:
 
-Local usage:
-  pip install torch transformers datasets peft trl accelerate bitsandbytes huggingface_hub
-  python kaggle_fine_tune.py
+    !python kaggle_fine_tune.py
+
+Do NOT paste this file into a notebook cell — run it as a script so
+packages install cleanly and Python restarts before training imports.
 """
 
 from __future__ import annotations
@@ -20,25 +19,86 @@ import subprocess
 import sys
 from pathlib import Path
 
-# ── install deps (Kaggle notebook) ───────────────────────────────────────────
+# Disable TF/Keras backends — avoids keras_nlp conflict on Kaggle
+os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
+os.environ.setdefault("USE_TF", "0")
+os.environ.setdefault("USE_TORCH", "1")
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+
+# Pinned versions tested on Kaggle Python 3.12 + GPU
+KAGGLE_PACKAGES = [
+    "transformers==4.46.3",
+    "tokenizers==0.20.3",
+    "accelerate==1.2.1",
+    "peft==0.14.0",
+    "trl==0.12.1",
+    "datasets==3.2.0",
+    "bitsandbytes==0.45.0",
+    "huggingface_hub==0.27.0",
+    "safetensors>=0.4.0",
+    "sentencepiece>=0.2.0",
+]
+
+
 def _ensure_packages() -> None:
-    required = [
-        "transformers>=4.40.0",
-        "datasets>=2.18.0",
-        "peft>=0.10.0",
-        "trl>=0.8.6",
-        "accelerate>=0.28.0",
-        "bitsandbytes>=0.43.0",
-        "huggingface_hub>=0.22.0",
-    ]
-    for pkg in required:
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "-q", pkg],
-            stdout=subprocess.DEVNULL,
-        )
+    print("Installing / fixing dependencies for Kaggle...")
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "-q",
+            "--upgrade",
+            "--force-reinstall",
+            "--no-cache-dir",
+            *KAGGLE_PACKAGES,
+        ],
+    )
+    print("Dependencies ready.")
 
 
-_ensure_packages()
+def _purge_hf_modules() -> None:
+    prefixes = (
+        "transformers",
+        "peft",
+        "trl",
+        "tokenizers",
+        "accelerate",
+        "datasets",
+        "bitsandbytes",
+    )
+    for name in list(sys.modules):
+        if name == "torch" or name.startswith(prefixes):
+            del sys.modules[name]
+
+
+def _bootstrap() -> None:
+    """Install deps, then re-exec in a fresh process (fixes broken imports)."""
+    if os.environ.get("_ZORENT_BOOTSTRAPPED") == "1":
+        return
+
+    _ensure_packages()
+
+    script = globals().get("__file__")
+    if script and Path(script).exists():
+        env = os.environ.copy()
+        env["_ZORENT_BOOTSTRAPPED"] = "1"
+        print("Restarting Python with clean imports...")
+        subprocess.check_call([sys.executable, script], env=env)
+        sys.exit(0)
+
+    # Fallback when pasted in a notebook cell (no __file__)
+    _purge_hf_modules()
+    os.environ["_ZORENT_BOOTSTRAPPED"] = "1"
+    print(
+        "Warning: running inside a notebook cell. "
+        "Prefer: !python kaggle_fine_tune.py  "
+        "If imports fail, Runtime → Restart session, then re-run."
+    )
+
+
+_bootstrap()
 
 import torch
 from datasets import Dataset
@@ -82,7 +142,6 @@ def _is_kaggle() -> bool:
 
 
 def _resolve_paths() -> tuple[Path, Path]:
-    """Pick dataset + output dirs for Kaggle vs local."""
     if _is_kaggle():
         input_root = Path("/kaggle/input")
         candidates = list(input_root.rglob("whatsapp_training_data.json"))
@@ -101,7 +160,6 @@ def _resolve_paths() -> tuple[Path, Path]:
     return dataset_path, output_dir
 
 
-# ── data loading ─────────────────────────────────────────────────────────────
 def normalize_messages(messages: list[dict]) -> list[dict] | None:
     cleaned: list[dict] = []
     for msg in messages:
@@ -142,7 +200,6 @@ def load_whatsapp_dataset(dataset_path: Path, train_split: float) -> Dataset:
     return split["train"]
 
 
-# ── inference helper ───────────────────────────────────────────────────────────
 def run_inference(model, tokenizer, user_prompt: str) -> str:
     messages = [
         {"role": "system", "content": DEFAULT_SYSTEM},
@@ -167,7 +224,6 @@ def run_inference(model, tokenizer, user_prompt: str) -> str:
     ).strip()
 
 
-# ── training ─────────────────────────────────────────────────────────────────
 def fine_tune() -> Path:
     dataset_path, output_dir = _resolve_paths()
     adapter_dir = output_dir / "final_adapter"
@@ -257,7 +313,6 @@ def fine_tune() -> Path:
     tokenizer.save_pretrained(adapter_dir)
     print(f"Saved adapter to {adapter_dir}")
 
-    # quick smoke test
     test_prompt = "smartwatch gurinchi cheppagalaraaa?"
     print(f"\nTest prompt: {test_prompt}")
     print(f"Response: {run_inference(trainer.model, tokenizer, test_prompt)}")
