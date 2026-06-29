@@ -13,6 +13,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 # Disable TF/Keras backends — required on Kaggle Colab base image
@@ -20,6 +21,11 @@ os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("USE_TF", "0")
 os.environ.setdefault("USE_TORCH", "1")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+os.environ.setdefault("PYTHONUNBUFFERED", "1")
+
+
+def log(msg: str) -> None:
+    print(f"[zorent] {msg}", flush=True)
 
 # Extras only — Kaggle already has transformers>=5.0.0, datasets, torch, pandas
 # --no-deps avoids upgrading torch/pandas and breaking the runtime
@@ -43,26 +49,36 @@ def _packages_ok() -> bool:
 
 def _ensure_packages() -> None:
     if _packages_ok():
-        print("Fine-tuning packages already installed.")
+        log("Fine-tuning packages already installed.")
         return
-    print("Installing fine-tuning packages (--no-deps, safe for Kaggle)...")
+    log("Installing peft, trl, bitsandbytes, accelerate...")
     subprocess.check_call(
         [
             sys.executable,
             "-m",
             "pip",
             "install",
-            "-q",
             "--no-deps",
             *PIP_PACKAGES,
         ],
     )
-    print("Packages ready.")
+    log("Packages installed.")
+
+
+def _in_notebook_kernel() -> bool:
+    return "ipykernel" in sys.modules or "IPython" in sys.modules
 
 
 def _bootstrap() -> None:
-    """Parent launches a fresh subprocess; child installs + trains."""
+    """Install deps. Re-exec only when pasted inside a notebook kernel."""
     if os.environ.get("_ZORENT_BOOTSTRAPPED") == "1":
+        _ensure_packages()
+        return
+
+    # !python kaggle_fine_tune.py is already a clean process — run directly
+    if not _in_notebook_kernel():
+        os.environ["_ZORENT_BOOTSTRAPPED"] = "1"
+        log("Starting Zorent WhatsApp fine-tuning...")
         _ensure_packages()
         return
 
@@ -70,20 +86,25 @@ def _bootstrap() -> None:
     if not script or not Path(script).exists():
         raise SystemExit(
             "\nDo NOT paste this file into a notebook cell.\n"
-            "Run these two lines instead:\n\n"
-            "  !wget -q https://raw.githubusercontent.com/bhanukiran12/"
-            "Zorent-fine-tunning/main/kaggle_fine_tune.py\n"
-            "  !python kaggle_fine_tune.py\n"
+            "Run these lines instead:\n\n"
+            "  !wget -O kaggle_fine_tune.py https://raw.githubusercontent.com/"
+            "bhanukiran12/Zorent-fine-tunning/main/kaggle_fine_tune.py\n"
+            "  !wget -O whatsapp_training_data.json https://raw.githubusercontent.com/"
+            "bhanukiran12/Zorent-fine-tunning/main/whatsapp_training_data.json\n"
+            "  !python -u kaggle_fine_tune.py\n"
         )
 
     env = os.environ.copy()
     env["_ZORENT_BOOTSTRAPPED"] = "1"
-    print("Starting clean Python process (avoids torch conflicts)...")
-    subprocess.check_call([sys.executable, script], env=env)
+    env["PYTHONUNBUFFERED"] = "1"
+    log("Restarting in clean process...")
+    subprocess.check_call([sys.executable, "-u", script], env=env)
     sys.exit(0)
 
 
 _bootstrap()
+log("Loading torch and training libraries (may take 1-2 min)...")
+t0 = time.time()
 
 import torch
 from datasets import Dataset
@@ -96,6 +117,8 @@ from transformers import (
     TrainingArguments,
 )
 from trl import SFTTrainer
+
+log(f"Libraries loaded in {time.time() - t0:.0f}s")
 
 # ── config ───────────────────────────────────────────────────────────────────
 HF_TOKEN = os.environ.get("HF_TOKEN", "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")
@@ -194,7 +217,7 @@ def load_whatsapp_dataset(dataset_path: Path, train_split: float) -> Dataset:
     if not records:
         raise ValueError(f"No valid conversations in {dataset_path}")
 
-    print(f"Valid conversations: {len(records)}")
+    print(f"Valid conversations: {len(records)}", flush=True)
     dataset = Dataset.from_list(records)
     split = dataset.train_test_split(test_size=1 - train_split, seed=42)
     return split["train"]
@@ -228,15 +251,19 @@ def fine_tune() -> Path:
     dataset_path, output_dir = _resolve_paths()
     adapter_dir = output_dir / "final_adapter"
 
-    print(f"Kaggle mode: {_is_kaggle()}")
-    print(f"Dataset: {dataset_path}")
-    print(f"Output:  {output_dir}")
+    log(f"Kaggle mode: {_is_kaggle()}")
+    log(f"GPU available: {__import__('torch').cuda.is_available()}")
+    log(f"Dataset: {dataset_path}")
+    log(f"Output:  {output_dir}")
 
+    log("Logging in to Hugging Face...")
     login(token=HF_TOKEN)
 
+    log("Loading WhatsApp dataset...")
     train_dataset = load_whatsapp_dataset(dataset_path, TRAIN_SPLIT)
-    print(f"Training samples: {len(train_dataset)}")
+    log(f"Training samples: {len(train_dataset)}")
 
+    log(f"Loading tokenizer: {MODEL_NAME}")
     tokenizer = AutoTokenizer.from_pretrained(
         MODEL_NAME, token=HF_TOKEN, trust_remote_code=True
     )
@@ -258,6 +285,7 @@ def fine_tune() -> Path:
             bnb_4bit_use_double_quant=True,
         )
 
+    log(f"Loading model: {MODEL_NAME} (downloading ~7GB first time)...")
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         token=HF_TOKEN,
@@ -305,22 +333,27 @@ def fine_tune() -> Path:
         packing=False,
     )
 
-    print("Starting fine-tuning...")
+    log("Starting fine-tuning (this takes 30-60+ min on T4)...")
     trainer.train()
 
     adapter_dir.mkdir(parents=True, exist_ok=True)
     trainer.model.save_pretrained(adapter_dir)
     tokenizer.save_pretrained(adapter_dir)
-    print(f"Saved adapter to {adapter_dir}")
+    log(f"DONE — saved adapter to {adapter_dir}")
 
     test_prompt = "smartwatch gurinchi cheppagalaraaa?"
-    print(f"\nTest prompt: {test_prompt}")
-    print(f"Response: {run_inference(trainer.model, tokenizer, test_prompt)}")
+    log(f"Test prompt: {test_prompt}")
+    log(f"Response: {run_inference(trainer.model, tokenizer, test_prompt)}")
 
     return adapter_dir
 
 
 if __name__ == "__main__":
-    if not torch.cuda.is_available():
-        print("Warning: no GPU detected — training will be very slow.")
-    fine_tune()
+    try:
+        if not torch.cuda.is_available():
+            log("WARNING: no GPU — training will be very slow. Enable GPU in Settings.")
+        fine_tune()
+        log("All finished successfully.")
+    except Exception as exc:
+        log(f"ERROR: {exc}")
+        raise
