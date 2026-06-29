@@ -12,7 +12,7 @@
 
 **Must see:**
 ```
-SCRIPT_VERSION = "2026-06-29-qwen3"
+SCRIPT_VERSION = "2026-06-29-qwen4"
 from trl import SFTConfig, SFTTrainer
 max_length=MAX_SEQ_LENGTH,
 ```
