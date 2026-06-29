@@ -1,36 +1,31 @@
 # Zorent-fine-tunning
 
-**One Python file. No folders. No imports from repo.**
+## ⚠️ Do NOT paste `kaggle_fine_tune.py` into a cell
 
-## Kaggle — copy these 3 cells
-
-**Cell 1** — download script + data:
-```python
-!wget -q https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/kaggle_fine_tune.py
-!wget -q https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/whatsapp_training_data.json
-```
-
-**Cell 2** — turn GPU on  
-Settings → Accelerator → **GPU T4 x2** (or better)
-
-**Cell 3** — train:
-```python
-!python kaggle_fine_tune.py
-```
-
-Done. Model saves to `/kaggle/working/zorent-whatsapp-lora/final_adapter`
+That causes `IndentationError` and torch errors.  
+Only copy the **3 lines below** (they download + run the file).
 
 ---
 
-## What you do NOT need
+## Kaggle — copy ONLY this into one cell
 
-- No `git clone`
-- No folder structure
-- No `from something import ...` from your repo
-- No separate Kaggle dataset (optional — script auto-finds JSON in `/kaggle/working/`)
+```python
+!wget -q -O kaggle_fine_tune.py https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/kaggle_fine_tune.py
+!wget -q -O whatsapp_training_data.json https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/whatsapp_training_data.json
+!python kaggle_fine_tune.py
+```
 
-## If it fails
+Before running: **Settings → Accelerator → GPU ON**
 
-1. **Session → Restart session**
-2. Run cells 1 and 3 again
-3. Do **not** paste `kaggle_fine_tune.py` code into a cell
+Output: `/kaggle/working/zorent-whatsapp-lora/final_adapter`
+
+---
+
+## Wrong vs right
+
+| ❌ Wrong | ✅ Right |
+|---------|---------|
+| Copy-paste code from `kaggle_fine_tune.py` into a cell | Run `!python kaggle_fine_tune.py` |
+| Paste only part of the file | Use the 3 `!wget` / `!python` lines above |
+
+If you already pasted code: **Session → Restart session**, then run the 3 lines above.
