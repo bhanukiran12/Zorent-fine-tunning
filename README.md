@@ -1,20 +1,23 @@
 # Zorent-fine-tunning
 
-## Kaggle — copy this ONE cell
+## Kaggle — use `zorent_train.py` (new filename, avoids CDN cache)
 
 ```python
-!rm -f kaggle_fine_tune.py
-!wget -O kaggle_fine_tune.py "https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/kaggle_fine_tune.py?t=$(date +%s)"
-!grep -m1 "SCRIPT_VERSION" kaggle_fine_tune.py
-!python -u kaggle_fine_tune.py
+!rm -f zorent_train.py kaggle_fine_tune.py
+!wget -O zorent_train.py https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/zorent_train.py
+!wget -O whatsapp_training_data.json https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/whatsapp_training_data.json
+!grep -E "SCRIPT_VERSION|SFTConfig|max_length" zorent_train.py | head -3
+!python -u zorent_train.py
 ```
 
-**Check:** you must see `2026-06-29-qwen2` and `Model: Qwen/Qwen2.5-3B-Instruct` in output.  
-If you see `Phi-3` — old file cached; run cell again.
+**Must see:**
+```
+SCRIPT_VERSION = "2026-06-29-qwen3"
+from trl import SFTConfig, SFTTrainer
+max_length=MAX_SEQ_LENGTH,
+```
 
-**Before running:**
-- Settings → Accelerator → **GPU ON**
-- Add-ons → Secrets → `HF_TOKEN` = your Hugging Face token
+**Before running:** GPU ON + Kaggle Secrets → `HF_TOKEN`
 
 ## Output
 
