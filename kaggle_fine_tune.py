@@ -25,7 +25,7 @@ os.environ.setdefault("PYTHONUNBUFFERED", "1")
 # Kaggle T4x2: use one GPU only (multi-GPU + QLoRA causes cuda:0/cuda:1 errors)
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
 
-SCRIPT_VERSION = "2026-06-29-qwen6"
+SCRIPT_VERSION = "2026-06-29-qwen7"
 MODEL_NAME = "Qwen/Qwen2.5-3B-Instruct"
 GITHUB_RAW = (
     "https://raw.githubusercontent.com/bhanukiran12/Zorent-fine-tunning/main/zorent_train.py"
@@ -175,38 +175,52 @@ def _get_hf_token() -> str:
     return ""
 
 
+def _find_dataset() -> Path | None:
+    """Find placement WhatsApp JSON in working dir or Kaggle input."""
+    names = [
+        "whatsapp_sheet8.json",
+        "whatsapp_training_data.json",
+    ]
+    search_roots = [Path("/kaggle/working"), Path("/kaggle/input")]
+    if not _is_kaggle():
+        search_roots = [Path(__file__).parent]
+
+    for root in search_roots:
+        if not root.exists():
+            continue
+        for name in names:
+            p = root / name
+            if p.exists():
+                return p
+        found = sorted(root.rglob("whatsapp_*.json"))
+        if found:
+            return found[0]
+    return None
+
+
 def _resolve_paths() -> tuple[Path, Path]:
     if _is_kaggle():
         output_dir = Path("/kaggle/working/zorent-whatsapp-lora")
 
-        # 1) explicit path: DATASET_PATH=/kaggle/working/whatsapp_training_data.json python ...
         env_path = os.environ.get("DATASET_PATH")
         if env_path and Path(env_path).exists():
             return Path(env_path), output_dir
 
-        # 2) downloaded next to script in /kaggle/working
-        working_file = Path("/kaggle/working/whatsapp_training_data.json")
-        if working_file.exists():
-            return working_file, output_dir
-
-        # 3) attached Kaggle dataset under /kaggle/input
-        input_root = Path("/kaggle/input")
-        candidates = list(input_root.rglob("whatsapp_training_data.json"))
-        if candidates:
-            return candidates[0], output_dir
+        dataset = _find_dataset()
+        if dataset:
+            return dataset, output_dir
 
         raise FileNotFoundError(
-            "whatsapp_training_data.json not found.\n"
-            "Upload it to /kaggle/working/ or wget it from GitHub.\n"
-            "Note: private GitHub repos return 404 on Kaggle — make repo public\n"
-            "or upload both files manually via Kaggle File → Upload.\n"
+            "Dataset JSON not found.\n"
+            "Upload whatsapp_sheet8.json or whatsapp_training_data.json to /kaggle/working/\n"
+            "or wget from GitHub."
         )
     else:
-        dataset_path = Path(__file__).parent / "whatsapp_training_data.json"
+        dataset = _find_dataset() or Path(__file__).parent / "whatsapp_sheet8.json"
         output_dir = Path(__file__).parent / "outputs" / "zorent-whatsapp-lora"
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    return dataset_path, output_dir
+    return dataset, output_dir
 
 
 def normalize_messages(messages: list[dict]) -> list[dict] | None:
